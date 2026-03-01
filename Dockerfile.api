@@ -4,6 +4,7 @@ FROM golang:alpine AS builder
 WORKDIR /app
 
 # Copy go mod and download dependencies
+ENV GOPROXY=direct 
 COPY go.mod go.sum ./
 RUN go mod download
 
