@@ -1,0 +1,23 @@
+# Build stage
+FROM golang:alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Build the dummy service
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/dummy ./cmd/dummy
+
+# Final stage
+FROM alpine:latest
+
+WORKDIR /app
+
+COPY --from=builder /app/bin/dummy .
+
+EXPOSE 8081
+
+CMD ["./dummy"]
