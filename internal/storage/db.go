@@ -3,6 +3,7 @@ package storage
 import (
 	"database/sql"
 	"log"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -17,8 +18,16 @@ func InitDB(connStr string) *sql.DB {
 		log.Fatalf("Failed to open db connection: %v", err)
 	}
 
-	if err = db.Ping(); err != nil {
-		log.Fatalf("Cannot connect to postgres: %v", err)
+	for i := 0; i < 10; i++ {
+		err = db.Ping()
+		if err == nil {
+			break
+		}
+		log.Printf("Waiting for postgres... attempt %d/10: %v", i+1, err)
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
+		log.Fatalf("Cannot connect to postgres after 10 attempts: %v", err)
 	}
 
 	// Initialize the postgres driver for the migration tool
