@@ -8,6 +8,7 @@ import (
 	"gotification/internal/storage"
 
 	"github.com/gin-gonic/gin"
+	ginprometheus "github.com/zsais/go-gin-prometheus"
 )
 
 func main() {
@@ -27,6 +28,9 @@ func main() {
 	h := handler.NewNotificationHandler(store)
 
 	r := gin.Default()
+
+	p := ginprometheus.NewPrometheus("gin")
+	p.Use(r)
 
 	// 4. Wire routes
 	r.POST("/send", h.SendNotification)
