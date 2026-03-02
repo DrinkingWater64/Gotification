@@ -18,6 +18,13 @@ func InitDB(connStr string) *sql.DB {
 		log.Fatalf("Failed to open db connection: %v", err)
 	}
 
+	// Configure connection pool to prevent overwhelming PostgreSQL (default limit 100)
+	// We use 15 so that 1 API + 5 Workers = 6 instances * 15 conns = 90 conns (safely under 100)
+	db.SetMaxOpenConns(15)
+	db.SetMaxIdleConns(15)
+	db.SetConnMaxIdleTime(5 * time.Minute)
+	db.SetConnMaxLifetime(10 * time.Minute)
+
 	for i := 0; i < 10; i++ {
 		err = db.Ping()
 		if err == nil {
