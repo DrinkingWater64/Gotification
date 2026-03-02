@@ -39,7 +39,9 @@ func main() {
 	// 4. Setup HTTP Handler
 	h := handler.NewNotificationHandler(store, nc)
 
-	r := gin.Default()
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(gin.Recovery())
 
 	p := ginprometheus.NewPrometheus("gin")
 	p.Use(r)

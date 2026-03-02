@@ -3,6 +3,8 @@ package storage
 import (
 	"database/sql"
 	"log"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -19,9 +21,15 @@ func InitDB(connStr string) *sql.DB {
 	}
 
 	// Configure connection pool to prevent overwhelming PostgreSQL (default limit 100)
-	// We use 15 so that 1 API + 5 Workers = 6 instances * 15 conns = 90 conns (safely under 100)
-	db.SetMaxOpenConns(15)
-	db.SetMaxIdleConns(15)
+	// We allow MAX_DB_CONNS to dynamically set limits based on service type.
+	maxConns := 15
+	if maxConnsEnv := os.Getenv("MAX_DB_CONNS"); maxConnsEnv != "" {
+		if parsed, err := strconv.Atoi(maxConnsEnv); err == nil {
+			maxConns = parsed
+		}
+	}
+	db.SetMaxOpenConns(maxConns)
+	db.SetMaxIdleConns(maxConns)
 	db.SetConnMaxIdleTime(5 * time.Minute)
 	db.SetConnMaxLifetime(10 * time.Minute)
 
