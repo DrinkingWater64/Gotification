@@ -45,6 +45,8 @@ services:
       - "4222:4222"
 
   worker:
+    deploy:
+      replicas: 2
     build: 
       context: .
       dockerfile: Dockerfile.worker

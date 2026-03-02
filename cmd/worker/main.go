@@ -49,8 +49,8 @@ func main() {
 	}
 	goClient := &http.Client{Timeout: 5 * time.Second}
 
-	// 4. Subscribe to the subject
-	sub, err := nc.Subscribe("notifications.send", func(m *nats.Msg) {
+	// 4. Subscribe to the subject using a Queue Group to load balance messages
+	sub, err := nc.QueueSubscribe("notifications.send", "notification_workers", func(m *nats.Msg) {
 		var msg NotificationMessage
 		if err := json.Unmarshal(m.Data, &msg); err != nil {
 			log.Printf("Failed to unmarshal message: %v", err)
