@@ -25,10 +25,12 @@ services:
       - "8080:8080"
     environment:
       - DB_CONN=postgres://postgres:password@db:5432/gotification?sslmode=disable
-      - DUMMY_URL=http://dummy:8081/process
+      - NATS_URL=nats://nats:4222
     depends_on:
       db:
         condition: service_healthy
+      nats:
+        condition: service_started
 
   dummy:
     build: 
@@ -36,6 +38,25 @@ services:
       dockerfile: Dockerfile.dummy
     ports:
       - "8081:8081"
+
+  nats:
+    image: nats:alpine
+    ports:
+      - "4222:4222"
+
+  worker:
+    build: 
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - DB_CONN=postgres://postgres:password@db:5432/gotification?sslmode=disable
+      - NATS_URL=nats://nats:4222
+      - DUMMY_URL=http://dummy:8081/process
+    depends_on:
+      db:
+        condition: service_healthy
+      nats:
+        condition: service_started
 
 volumes:
   postgres_data:

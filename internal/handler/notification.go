@@ -1,25 +1,24 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
-	"os"
-	"time"
 
 	"gotification/internal/model"
 	"gotification/internal/storage"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nats-io/nats.go"
 )
 
 // NotificationHandler groups together our endpoint logic and dependencies
 type NotificationHandler struct {
 	store *storage.NotificationStore
+	nc    *nats.Conn
 }
 
-func NewNotificationHandler(store *storage.NotificationStore) *NotificationHandler {
-	return &NotificationHandler{store: store}
+func NewNotificationHandler(store *storage.NotificationStore, nc *nats.Conn) *NotificationHandler {
+	return &NotificationHandler{store: store, nc: nc}
 }
 
 func (h *NotificationHandler) SendNotification(c *gin.Context) {
@@ -36,31 +35,22 @@ func (h *NotificationHandler) SendNotification(c *gin.Context) {
 		return
 	}
 
-	goClient := &http.Client{Timeout: 5 * time.Second}
-
+	// In Phase 2, we just publish to the queue and let the worker handle it!
 	bodyBytes, _ := json.Marshal(map[string]interface{}{
 		"id":     notificationID,
 		"action": "send",
 	})
 
-	dummyURL := os.Getenv("DUMMY_URL")
-	if dummyURL == "" {
-		dummyURL = "http://localhost:8081/process"
-	}
-
-	dummyResponse, err := goClient.Post(dummyURL, "application/json", bytes.NewBuffer(bodyBytes))
-	if err != nil || dummyResponse.StatusCode != http.StatusOK {
+	if err := h.nc.Publish("notifications.send", bodyBytes); err != nil {
+		// If publishing fails, we can either fail the request or mark DB as FAILED.
 		h.store.UpdateStatus(notificationID, "FAILED")
-		c.JSON(http.StatusBadGateway, gin.H{"error": "Dummy server failed to process"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue notification"})
 		return
 	}
-	defer dummyResponse.Body.Close()
 
-	h.store.UpdateStatus(notificationID, "SENT")
-
-	c.JSON(http.StatusOK, gin.H{
-		"message":         "Notification sent successfully",
+	c.JSON(http.StatusAccepted, gin.H{
+		"message":         "Notification queued successfully",
 		"notification_id": notificationID,
-		"status":          "SENT",
+		"status":          "PENDING_WORKER",
 	})
 }
