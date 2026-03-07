@@ -8,6 +8,8 @@ import (
 	"gotification/internal/storage"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nats-io/nats.go"
+	ginprometheus "github.com/zsais/go-gin-prometheus"
 )
 
 func main() {
@@ -20,13 +22,29 @@ func main() {
 	db := storage.InitDB(connStr)
 	defer db.Close() // Keep DB connection alive until main finishes
 
-	// 2. Setup Data Layer (Repository)
+	// 2. Initialize NATS connection
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		natsURL = nats.DefaultURL
+	}
+	nc, err := nats.Connect(natsURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to NATS: %v", err)
+	}
+	defer nc.Close()
+
+	// 3. Setup Data Layer (Repository)
 	store := storage.NewNotificationStore(db)
 
-	// 3. Setup HTTP Handler
-	h := handler.NewNotificationHandler(store)
+	// 4. Setup HTTP Handler
+	h := handler.NewNotificationHandler(store, nc)
 
-	r := gin.Default()
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(gin.Recovery())
+
+	p := ginprometheus.NewPrometheus("gin")
+	p.Use(r)
 
 	// 4. Wire routes
 	r.POST("/send", h.SendNotification)
